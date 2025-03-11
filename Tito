@@ -1,0 +1,248 @@
+#include <Arduino.h>
+#include <Servo.h>
+#include <LiquidCrystal_I2C.h>
+#include <IRremote.h>
+
+int RECV_PIN = 11;
+
+
+// CLASES O METODOS
+Servo f_servo;
+LiquidCrystal_I2C lcd(0x27,16,2);
+IRrecv irrecv(RECV_PIN);
+decode_results results;
+
+#define IR_CODE_UP    0xFF629D
+#define IR_CODE_DOWN  0xFFA857
+#define IR_CODE_LEFT  0xFF22DD
+#define IR_CODE_RIGHT 0xFFC23D
+#define IR_CODE_OK    0xFF02FD
+#define IR_CODE_1     0xFF6897
+#define IR_CODE_2     0xFF9867
+#define IR_CODE_3     0xFFB04F
+#define IR_CODE_4     0xFF30CF
+#define IR_CODE_5     0xFF18E7
+#define IR_CODE_6     0xFF7A85
+#define IR_CODE_7     0xFF10EF
+#define IR_CODE_8     0xFF38C7
+#define IR_CODE_9     0xFF5AA5
+#define IR_CODE_0     0xFF4AB5
+#define IR_CODE_AST   0xFF42BD
+#define IR_CODE_NUM   0xFF52AD
+bool Flag_Automatico = false;
+
+
+
+#define PIN_ECHO    A0  // Pin ECHO conectado a A0
+#define PIN_TRIGGER A1  // Pin TRIGGER conectado a PIN A1
+#define PIN_SERVO   A2  // Pin del servo conectado a PIN A2
+#define PIN_298ENA  5   // ENA (enable A) conectado a PIN 5 PWM
+#define PIN_298ENB  6   // ENB (enable B) conectado a PIN 6 PWM
+#define PIN_298IN1  9   // IN1 del L298, conectado a PIN 9
+#define PIN_298IN2  4   // IN2 del L298, conectado a PIN 4
+#define PIN_298IN3  7   // IN3 del L298, conectado a PIN 7 
+#define PIN_298IN4  8   // IN4 del L298, conectado a PIN 8
+#define stop  ir_adelante(0,0)
+
+void setup(){
+
+  pinMode(PIN_ECHO, INPUT);      
+  pinMode(PIN_TRIGGER, OUTPUT);    
+  pinMode(PIN_298IN1,OUTPUT);   //pin 9
+  pinMode(PIN_298IN2,OUTPUT);   // pin 4
+  pinMode(PIN_298IN3,OUTPUT);   // pin 7
+  pinMode(PIN_298IN4,OUTPUT);   // pin 8
+  pinMode(PIN_298ENA,OUTPUT);   // pin 5 (PWM) 
+  pinMode(PIN_298ENB,OUTPUT);   // pin 6(PWM)
+  pinMode(2,INPUT_PULLUP);      // PIN 2 Interrpcion Rueda Derecha
+  pinMode(3,INPUT_PULLUP);      // PIN 3 Interrpcion Rueda Izquierda
+  f_servo.attach(PIN_SERVO);
+  Serial.begin(9600);
+  f_servo.write(90);
+  irrecv.enableIRIn(); // Start the receiver
+}
+
+void trompo_der (unsigned int velA, unsigned int velB){
+  digitalWrite(PIN_298IN1, HIGH);
+  digitalWrite(PIN_298IN2, LOW);
+  digitalWrite(PIN_298IN3, LOW);
+  digitalWrite(PIN_298IN4, HIGH);
+  analogWrite(PIN_298ENA,velA); // 0 -255
+  analogWrite(PIN_298ENB,velB);
+}
+void trompo_izq (unsigned int velA, unsigned int velB){
+  digitalWrite(PIN_298IN1, LOW);
+  digitalWrite(PIN_298IN2, HIGH);
+  digitalWrite(PIN_298IN3, HIGH);
+  digitalWrite(PIN_298IN4, LOW);
+  analogWrite(PIN_298ENA,velA); // 0 -255
+  analogWrite(PIN_298ENB,velB);
+}
+void ir_adelante (unsigned int velA, unsigned int velB){
+  digitalWrite(PIN_298IN1, HIGH);
+  digitalWrite(PIN_298IN2, LOW);
+  digitalWrite(PIN_298IN3, HIGH);
+  digitalWrite(PIN_298IN4, LOW);
+  analogWrite(PIN_298ENA,velA); // 0 -255
+  analogWrite(PIN_298ENB,velB);
+}
+
+void giro_derecha (unsigned int velA, unsigned int velB){
+  digitalWrite(PIN_298IN1, HIGH);
+  digitalWrite(PIN_298IN2, LOW);
+  digitalWrite(PIN_298IN3, LOW);
+  digitalWrite(PIN_298IN4, HIGH);
+  analogWrite(PIN_298ENA,velA); // 0 -255
+  analogWrite(PIN_298ENB,velB);
+  delay(350);
+  analogWrite(PIN_298ENA,0);
+  analogWrite(PIN_298ENB,0);
+}
+
+void giro_izquierda (unsigned int velA, unsigned int velB){
+  digitalWrite(PIN_298IN1, LOW);
+  digitalWrite(PIN_298IN2, HIGH);
+  digitalWrite(PIN_298IN3, HIGH);
+  digitalWrite(PIN_298IN4, LOW);
+  analogWrite(PIN_298ENA,velA); // 0 -255
+  analogWrite(PIN_298ENB,velB);
+  delay(350);
+  analogWrite(PIN_298ENA,0);
+  analogWrite(PIN_298ENB,0);
+}
+
+void giro_atras (unsigned int velA, unsigned int velB){
+  digitalWrite(PIN_298IN1, LOW);
+  digitalWrite(PIN_298IN2, HIGH);
+  digitalWrite(PIN_298IN3, HIGH);
+  digitalWrite(PIN_298IN4, LOW);
+  analogWrite(PIN_298ENA,velA); // 0 -255
+  analogWrite(PIN_298ENB,velB);
+  delay(450);
+  analogWrite(PIN_298ENA,0);
+  analogWrite(PIN_298ENB,0);
+}
+void marcha_atras (unsigned int velA, unsigned int velB){
+  digitalWrite(PIN_298IN1, LOW);
+  digitalWrite(PIN_298IN2, HIGH);
+  digitalWrite(PIN_298IN3, LOW);
+  digitalWrite(PIN_298IN4, HIGH);
+  analogWrite(PIN_298ENA,velA); // 0 -255
+  analogWrite(PIN_298ENB,velB);
+}
+void decir_no (){
+  f_servo.write(45);
+  delay(250);
+  f_servo.write(135);
+  delay(250);
+  f_servo.write(45);
+  delay(250);
+  f_servo.write(135);
+  delay(250);
+  f_servo.write(45);
+  delay(250);
+  f_servo.write(135);
+  delay(250);
+  f_servo.write(90);
+  delay(250);
+}
+
+
+
+/*  Funcion medir_distancia_cm() inicializa el sensor de ultrasonido, calcula la distancia en cm
+    y la devuelve en tipo de datos FLOAT  */
+float medir_distancia_cm (){
+  
+  /*  Como primera medida debemos inicializar el TRIGGER, para poder calcular la distancia
+      este paso se debera realizar cada vez que se requiera realizar una medicion, el metodo
+      es descrito en el datasheet del HC SR04, simplemente lo respetamos */
+  digitalWrite(PIN_TRIGGER, LOW);
+  delayMicroseconds(2);
+  digitalWrite(PIN_TRIGGER, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(PIN_TRIGGER, LOW);
+  /*  La función pulseIn obtiene el tiempo que tarda en cambiar entre estados, en este caso a HIGH
+      unsigned long tiempo = pulseIn(PIN_ECHO, HIGH); // devuelve el tiem po en microsegundos?
+      Obtenemos la distancia en cm, hay que convertir el tiempo en segudos ya que está en microsegundos
+      por eso se multiplica por 0.0001 y se divide por 2, xq la distancia al sensor es el doble debido al rebote 
+      en esta primera aproximacion estimamos la velocidad del sonido en 340 m/s */
+  return pulseIn(PIN_ECHO, HIGH) * 0.0001 * 340 / 2.0;
+}
+
+
+void Automatico(){
+   if(medir_distancia_cm ()> 40){
+    ir_adelante(115, 128);
+  }else{
+    ir_adelante(0, 0);
+    f_servo.write(0); //miro a la derecha
+    delay(1000); //espero hasta que llegue
+    float distancia_der = medir_distancia_cm (); //mide la distancia a la derecha
+    f_servo.write(180); //miro a la izquierda
+    delay(1000); //espero hasta que llegue
+    float distancia_izq = medir_distancia_cm (); //mide la distancia a la izquierda
+    if(distancia_der > distancia_izq && distancia_der > 40 ){
+      giro_derecha(115, 128);
+    }
+    if(distancia_izq > distancia_der && distancia_izq > 40 ){
+      giro_izquierda(115, 128);
+    }
+    if(distancia_der && distancia_der < 40){
+      giro_atras(115, 128);
+    }
+    f_servo.write(90);
+    delay(1000);
+  }
+}
+
+
+void IR_Control(){
+  unsigned long Key;
+  if(irrecv.decode(&results)){ //judging if serial port receives data
+    Key = results.value;
+    switch(Key){
+      case IR_CODE_UP:
+        ir_adelante(115, 128); //UP
+        break;
+      case IR_CODE_DOWN: 
+        marcha_atras(115, 128); //back
+        break;
+      case IR_CODE_LEFT:
+        trompo_izq(98, 82);; //Left
+        break;
+      case IR_CODE_RIGHT:
+        trompo_der(82, 72);; //Righ
+        break;
+      case IR_CODE_OK:
+        stop; //stop
+        break;
+      case IR_CODE_AST:
+        Flag_Automatico = true; //activar el modo automatico
+        break;
+      case IR_CODE_NUM:
+        Flag_Automatico = false; //desactivar el modo automatico
+        stop;
+        break;
+      case IR_CODE_1:
+        trompo_der(190, 250); //hacer un trompo hacia la derecha
+        break;
+      case IR_CODE_2:
+        trompo_izq(190, 250); //hacer un trompo hacia la izquierda
+        break;
+      case IR_CODE_3:
+        decir_no();
+        break;
+      default:
+        break;
+    }
+  irrecv.resume(); // Receive the next value
+}
+
+}
+
+void loop(){
+  IR_Control();
+  if(Flag_Automatico == true){
+    Automatico();
+  }
+}
