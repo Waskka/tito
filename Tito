@@ -202,35 +202,35 @@ void IR_Control(){
     Key = results.value;
     switch(Key){
       case IR_CODE_UP:
-        ir_adelante(115, 128); //UP
+        ir_adelante(115, 128);  //ir para adelante (Flecha oara arriba)
         break;
       case IR_CODE_DOWN: 
-        marcha_atras(115, 128); //back
+        marcha_atras(115, 128); //ir para atras (flecha para atras)
         break;
       case IR_CODE_LEFT:
-        trompo_izq(98, 82);; //Left
+        trompo_izq(98, 82);;    //Girar a la izquierda (Flecha izquierda)
         break;
       case IR_CODE_RIGHT:
-        trompo_der(82, 72);; //Righ
+        trompo_der(82, 72);;    //girar a la derecha (Flecha derecha)
         break;
       case IR_CODE_OK:
-        stop; //stop
+        stop;                   //no sabes leer amigo? pone stop (boton del medio)
         break;
       case IR_CODE_AST:
-        Flag_Automatico = true; //activar el modo automatico
+        Flag_Automatico = true; //activar el modo automatico (asterisco)
         break;
       case IR_CODE_NUM:
-        Flag_Automatico = false; //desactivar el modo automatico
+        Flag_Automatico = false; //desactivar el modo automatico (Numeral)
         stop;
         break;
       case IR_CODE_1:
-        trompo_der(190, 250); //hacer un trompo hacia la derecha
+        trompo_der(190, 250); //hacer un trompo hacia la derecha (1)
         break;
       case IR_CODE_2:
-        trompo_izq(190, 250); //hacer un trompo hacia la izquierda
+        trompo_izq(190, 250); //hacer un trompo hacia la izquierda (2)
         break;
       case IR_CODE_3:
-        decir_no();
+        decir_no();           //literalmente lo que dice la funcion amigo no es tan dificil (3)
         break;
       default:
         break;
